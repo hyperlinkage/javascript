@@ -8,6 +8,9 @@
     T.maxY = 21;
     T.start = Math.floor((T.maxX  - 4) / 2);
     T.cellDimensions = 30;
+    T.defaultInterval = 300;
+    T.shortInterval = 25;
+    T.boost = false;
 
     for(var x = 0; x < T.maxX; x++)
     {
@@ -19,13 +22,11 @@
         }
     }
 
-
     T.board  =  $("<div></div>");
     $("body").append(T.board);
 
-    $("body").append("<input type='button' onmousedown='T.moveLeft()' value='Left' />");
-    $("body").append("<input type='button' onmousedown='T.moveRight()' value='Right' />");
-
+    // $("body").append("<input type='button' onmousedown='T.moveLeft()' value='Left' />");
+    // $("body").append("<input type='button' onmousedown='T.moveRight()' value='Right' />");
 
     var width =  (T.maxX * T.cellDimensions) + "px";
     var height = (T.maxY * ( T.cellDimensions - 1)) - 10 + "px";
@@ -47,6 +48,7 @@
         var piece =
         {
             blocks: [],
+            shape: T.shapes[rand],
             y: 0
         };
 
@@ -68,6 +70,13 @@
                             $(this.element).css("left", (this.x * T.cellDimensions) + 5 + "px");
                             $(this.element).css("top", (this.y * T.cellDimensions) + 5 + "px");
                         },
+                        freeze: function()
+                        {
+                            this.frozen = true;
+                            $(this.element).css("background-color", "#aaaaaa");
+                            $(this.element).fadeOut(T.defaultInterval);
+                        },
+                        frozen: false,
                         x: l,
                         y: t 
                     };
@@ -83,29 +92,104 @@
                     $(block.element).css("position", "absolute");
                     
                     piece.blocks[piece.blocks.length] = block;
-                    //alert(piece.blocks.length);
-                    //T.grid[l,t].element = piece.element;
+                    
                     T.grid[l][t] = block;
                     
                     block.place();
                 }     
             }
         }
-
         T.activePiece = piece;
-
     };
 
-    T.tick = function (){
-
+    T.tick = function ()
+    {
         if(T.activePiece == null)
         {
+            T.boost = false;
+            
+            // Remove anything that was previously frozen and move everything else down    
+            for(var y = T.grid[0].length - 1; y >= 0; y--)
+            {
+                var rowCleared = false;
+                
+                for(var x = 0; x < T.grid.length; x++)
+                {
+                    var yAbove = y - 1;
+                    if(T.grid[x][y] != false && T.grid[x][y].frozen)
+                    {     
+                        rowCleared = true;
+                        T.grid[x][y] = false;
+                    }
+                }
+
+                // Move everything above down one row
+                if(rowCleared)
+                {
+                    for(var clrY = y; clrY >= 0; clrY--)
+                    {
+                        var yAbove = clrY - 1;
+                        if(yAbove > 0)
+                        {
+                            for(var x = 0; x < T.grid.length; x++)
+                            {                                
+                                T.grid[x][clrY] = T.grid[x][yAbove];
+                                T.grid[x][yAbove] = false;
+                                if(T.grid[x][clrY] != false)
+                                {
+                                    T.grid[x][clrY].x = x;
+                                    T.grid[x][clrY].y = clrY;
+                                    T.grid[x][clrY].place();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Increment the counter so the same row is processed again
+                if(rowCleared)
+                {
+                    y++;
+                }
+                
+            }
+
+            var completedRows = false;
+            // Check for completed rows and freeze them
+            for(var y = T.grid[0].length - 1; y >= 0; y--)
+            {
+                var rowComplete = true;
+                for(var x = 0; x < T.grid.length; x++)
+                {
+                    if(T.grid[x][y] == false)
+                    {
+                        rowComplete = false;
+                        break;
+                    }
+                }
+
+                if(rowComplete)
+                {
+                    completedRows = true;
+
+                    // Remove the row from the board
+                    for(var x = 0; x < T.grid.length; x++)
+                    {
+                        T.grid[x][y].freeze();
+                    }
+                }   
+            }
+            
+            if(completedRows)
+            {
+                T.setTimeout();
+                return;
+            }
+
             T.addPiece();
         }
         else
         {
-            //T.activePiece.position++;
-            
             // Check that the path below is clear
             var verticalCollision = false;
             var columnsCleared = [];
@@ -132,34 +216,42 @@
             if(verticalCollision)
             {
                 T.activePiece = null;
-                return;
             }
-
-            for(var i = T.activePiece.blocks.length - 1; i >= 0 ; i--)
+            else
             {
-                var block = T.activePiece.blocks[i];
-                
-                if(block.y < T.maxY - 2)
+                for(var i = T.activePiece.blocks.length - 1; i >= 0 ; i--)
                 {
-                    var oldY = 0
-                    block.y++;
-                    block.place();
+                    var block = T.activePiece.blocks[i];
                     
-                    T.grid[block.x][block.y - 1] = false;
-                    T.grid[block.x][block.y] = block;
+                    if(block.y < T.maxY - 2)
+                    {
+                        var oldY = 0
+                        block.y++;
+                        block.place();
+                        
+                        T.grid[block.x][block.y - 1] = false;
+                        T.grid[block.x][block.y] = block;
 
-                }
-                else
-                {
-                    T.activePiece = null;
-                    return;
-                }
-                
+                    }
+                    else
+                    {
+                        T.activePiece = null;
+                        break;
+                    }
+                    
+                }    
             }
         }
+
+        T.setTimeout();
+    } // end function tick
+
+    T.setTimeout = function()
+    {
+        T.clock = setTimeout(T.tick, T.boost ? T.shortInterval : T.defaultInterval);
     }
 
-    T.clock = setInterval(T.tick, 400);
+    T.setTimeout();
 
     T.shuffle = function (a) {
         var j, x, i;
@@ -210,6 +302,15 @@
         ]
 
     ];
+
+    // T.shapes = [
+    //     [
+    //         [false, true, true]
+    //     ],
+    //     [
+    //         [false, true, false]
+    //     ]
+    // ];
 
     T.shuffle(T.colours);
     T.shuffle(T.shapes);
@@ -320,8 +421,53 @@
             
         }
 
-    }
 
-window.T = T;
+    } // end function moveRight
+
+    T.turn = function()
+    {
+        if(T.activePiece != null)
+        {
+            var newShape = [];
+            for(var i = T.activePiece.shape.length - 1; i >= 0; i--)
+            {
+                //alert(T.activePiece.shape[i]);
+                
+
+            }
+
+        }
+
+    } // end function turn
+
+    $("body").keydown(function(args)
+    {
+        if(args.which == 37)
+        {
+            T.moveLeft();
+        }
+        else if (args.which == 39)
+        {
+            T.moveRight();
+        }
+        else if(args.which == 40) // down arrow
+        {
+            T.boost = true;
+        }
+        else if(args.which == 38) // up arrow
+        {
+            T.turn();
+        }
+    });
+
+    $("body").keyup(function(args)
+    {
+        if(args.which == 40) // down arrow
+        {
+            T.boost = false;
+        }
+    });
+
+    window.T = T;
 
 })();
