@@ -64,33 +64,15 @@
                     var l = T.start + j;
                     var t = i;
     
-                    var block = {
-                        place: function()
-                        {
-                            $(this.element).css("left", (this.x * T.cellDimensions) + 5 + "px");
-                            $(this.element).css("top", (this.y * T.cellDimensions) + 5 + "px");
-                        },
-                        freeze: function()
-                        {
-                            this.frozen = true;
-                            $(this.element).css("background-color", "#aaaaaa");
-                            $(this.element).fadeOut(T.defaultInterval);
-                        },
-                        frozen: false,
-                        x: l,
-                        y: t 
-                    };
+                    var block = new Block(rand);
+                    block.x = l;
+                    block.y = t;
 
                     block.element = $("<div/>")
                     $(piece.element).append(block.element);
                     
-                    $(block.element).css("width", T.cellDimensions - 6 + "px");
-                    $(block.element).css("height", T.cellDimensions - 6 + "px");
-                    $(block.element).css("background-color", T.colours[rand]);
-                    $(block.element).css("border","2px solid white");
-                    $(block.element).css("border-radius", ( rand * ((T.cellDimensions / 2) / T.shapes.length) ) + "px");
-                    $(block.element).css("position", "absolute");
-                    
+                    block.style();
+
                     piece.blocks[piece.blocks.length] = block;
                     
                     T.grid[l][t] = block;
@@ -193,6 +175,7 @@
             // Check that the path below is clear
             var verticalCollision = false;
             var columnsCleared = [];
+            //alert(T.activePiece.blocks.length);
             for(var i = T.activePiece.blocks.length - 1; i >= 0 ; i--)
             {
                 var block = T.activePiece.blocks[i];
@@ -428,17 +411,115 @@
     {
         if(T.activePiece != null)
         {
+            ///var piece = ;
             var newShape = [];
-            for(var i = T.activePiece.shape.length - 1; i >= 0; i--)
-            {
-                //alert(T.activePiece.shape[i]);
-                
+            
+            var xMax = T.activePiece.shape.length;
+            var yMax = T.activePiece.shape[0].length;
 
+            // Rotate the shape
+            for(var x = 0; x < xMax; x++)
+            {
+                for(var y = yMax - 1; y >=0; y--)
+                {
+                    var newX = (yMax - 1) - y;
+                    var newY = x;
+                    //alert(newY)
+                    if(!newShape[newX])
+                    {
+                        newShape[newX] = [];
+                    }
+
+                    newShape[newX][newY] = T.activePiece.shape[x][y];
+
+                }
+            }
+
+//            alert(T.activePiece.blocks.length);
+            var pieceX = T.activePiece.blocks[0].x;
+            var pieceY = T.activePiece.blocks[0].y; 
+            var seed = T.activePiece.blocks[0].seed;
+
+            // Remove the old piece from the board
+            for(var i = 0; i < T.activePiece.blocks.length; i++)
+            {
+                var block = T.activePiece.blocks[i];
+                
+                block.remove();
+                T.grid[block.x][block.y] = false;
+
+            }
+            T.activePiece.shape = newShape;
+            T.activePiece.blocks = [];
+
+            for(var i = 0; i < newShape.length; i++)
+            {
+                for(var j = 0; j< newShape[i].length; j++)
+                {
+                    if(newShape[i][j] === true)
+                    {       
+                        var l = pieceX + j;
+                        var t = pieceY + i;
+        
+                        var block = new Block(seed);
+                        block.x = l;
+                        block.y = t;
+
+                        block.element = $("<div/>")
+                        $(T.activePiece.element).append(block.element);
+                        
+                        block.style();
+                        
+                        T.activePiece.blocks[T.activePiece.blocks.length] = block;
+                        
+                        T.grid[l][t] = block;
+                        
+                        block.place();
+                    }     
+                }
             }
 
         }
 
     } // end function turn
+
+    var Block = function(seed)
+    { 
+        this.seed = seed;
+        this.element = null;
+        this.place = function()
+        {
+            $(this.element).css("left", (this.x * T.cellDimensions) + 5 + "px");
+            $(this.element).css("top", (this.y * T.cellDimensions) + 5 + "px");
+        }
+        this.freeze = function()
+        {
+            this.frozen = true;
+            $(this.element).css("background-color", "#aaaaaa");
+            $(this.element).fadeOut(T.defaultInterval);
+        }
+        this.remove = function()
+        {
+            $(this.element).hide();
+         
+        }
+        this.style = function()
+        {
+            $(this.element).css("width", T.cellDimensions - 6 + "px");
+            $(this.element).css("height", T.cellDimensions - 6 + "px");
+            $(this.element).css("background-color", T.colours[this.seed]);
+            $(this.element).css("border","2px solid white");
+            $(this.element).css("border-radius", ( this.seed * ((T.cellDimensions / 2) / T.shapes.length) ) + "px");
+            $(this.element).css("position", "absolute");
+    
+        }
+        this.frozen = false
+        this.x = 0;
+        this.y = 0;
+        
+    }
+
+
 
     $("body").keydown(function(args)
     {
